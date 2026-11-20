@@ -45,6 +45,31 @@ encode:
   output_ffmpeg_command: false
 ```
 
+#### Custom output ladder
+> Vertical shorts don't need the five horizontal rungs. You can declare your own ladder in the config, and each rung is only used when it fits the source (Frevod never upscales).
+
+``` yaml
+encode:
+  concurrent_encodings: 2
+  ladder: # optional, defaults to the original 2160p..480p ladder
+    - name: "1080"        # reference pixels: height for horizontal videos, width for vertical ones
+      resolution: 1080
+      video_bitrate: "4500k"
+      maxrate: "6000k"
+      bufsize: "9000k"
+      audio_bitrate: "160k"
+    - name: "720"
+      resolution: 720
+      video_bitrate: "2500k"
+      maxrate: "3500k"
+      bufsize: "5000k"
+      audio_bitrate: "128k"
+```
+
+Rungs can be listed in any order (Frevod sorts them highest-first), duplicate resolutions are dropped, and if every rung sits above the source resolution the lowest rung is kept, so a job always produces at least one variant.
+
+A job can also bring its own ladder through the REST API (see below), which overrides the configured one for that job only.
+
 ### Dispatch Options
 > Where will Frevod store the output? A MinIO bucket? A local directory on your computer? Maybe both.
 
@@ -86,6 +111,19 @@ Example:
   {
     "uri": "/path/on/your/computer",
     "key": "making burgers with my brother",
+  }
+```
+
+You can also give this job its own output ladder, overriding the configured/default one:
+
+``` json
+  {
+    "uri": "/path/on/your/computer",
+    "key_starter": "vertical short",
+    "ladder": [
+      {"name": "1080", "resolution": 1080, "video_bitrate": "4500k", "maxrate": "6000k", "bufsize": "9000k", "audio_bitrate": "160k"},
+      {"name": "720",  "resolution": 720,  "video_bitrate": "2500k", "maxrate": "3500k", "bufsize": "5000k", "audio_bitrate": "128k"}
+    ]
   }
 ```
 

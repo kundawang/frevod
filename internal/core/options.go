@@ -36,6 +36,10 @@ type EncodeOptions struct {
 	// SegmentDuration     int    `yaml:"segment_duration" validate:"min=0,max=10"`
 	ConcurrentEncodings int  `yaml:"concurrent_encodings" validate:"min=1,max=100,required"`
 	OutputFFmpegCommand bool `yaml:"output_ffmpeg_command"`
+
+	// Ladder is the default output ladder for jobs that don't bring
+	// their own. When empty, DefaultLadder() is used.
+	Ladder Ladder `yaml:"ladder"`
 }
 
 type DispatchOptions struct {

@@ -32,9 +32,19 @@ func (e *encoder) Start() {
 			metadata, err := GetMetadataFrom(absoluteVideoPath)
 			if err != nil {
 				e.slog.Error("couldn't get metadata from a video", "video", videoName, "err", err)
+				return
 			}
 
-			video := NewVideo(metadata)
+			// The ladder is resolved once and pinned to the job, so concurrent
+			// encodings and retries of this same job always use the exact same
+			// rungs and never mix renditions from different ladders.
+			ladder := job.EncodeJob.Ladder
+			if len(ladder) == 0 {
+				ladder = e.options.Encode.Ladder
+			}
+			job.EncodeJob.Ladder = ladder
+
+			video := NewVideo(metadata, ladder)
 			cmd := e.BuildFFmpegCommand(video, absoluteVideoPath)
 
 			outputDir, err := e.createOutputDir()
@@ -46,7 +56,11 @@ func (e *encoder) Start() {
 			cmd.Dir = outputDir
 			err = cmd.Run()
 			if err != nil {
-				e.slog.Error(ErrRunningFFmpegCommand.Error(), "err", err)
+				if e.ctx.Err() != nil {
+					e.slog.Warn("Encoding canceled, cleaning up output", "key", job.DispatchJob.KeyStarter)
+				} else {
+					e.slog.Error(ErrRunningFFmpegCommand.Error(), "err", err)
+				}
 				os.RemoveAll(outputDir)
 				return
 			}

@@ -67,6 +67,7 @@ func (s *S3) Dispatch(ctx context.Context, job core.DispatchJob) error {
 	wg.Wait() // finish uploading all files before returning
 	if walkContext.Err() != nil {
 		s.rollback(uploadedKeys)
+		return fmt.Errorf("partial upload to s3, uploaded files were rolled back: %w", walkContext.Err())
 	}
 
 	return nil

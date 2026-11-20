@@ -27,6 +27,12 @@ type EncodeJob struct {
 	AbsoluteVideoPath string
 	File              *os.File
 	DownloadedFile    bool
+
+	// Ladder is the output ladder requested for this job.
+	// A nil Ladder means "use the configured/default ladder".
+	// The encoder resolves it once and pins the result here, so
+	// retries of this job always reuse the exact same rungs.
+	Ladder Ladder
 }
 
 type DispatchJob struct {

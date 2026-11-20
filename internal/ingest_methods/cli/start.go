@@ -22,7 +22,7 @@ func (c *cli) Start() {
 				continue
 			}
 
-			core.PushJob(uriType, uri, keyStarter, "cli")
+			core.PushJob(uriType, uri, keyStarter, "cli", nil)
 		}
 	}()
 

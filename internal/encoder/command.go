@@ -60,10 +60,10 @@ func buildFilterComplex(video *Video) []string {
 
 	// Example output:
 	// ;[v1]scale=-2:720[v1out];[v2]scale=-2:480[v2out]
-	for index, res := range video.Renditions {
-		scale := fmt.Sprintf("-2:%v", res.name)
+	for index, rung := range video.Renditions {
+		scale := fmt.Sprintf("-2:%v", rung.Name)
 		if video.Orientation == "vertical" {
-			scale = fmt.Sprintf("%v:-2", res.name)
+			scale = fmt.Sprintf("%v:-2", rung.Name)
 		}
 
 		fmt.Fprintf(&splitSection, ";[v%v]scale=%v[v%vout]",
@@ -81,20 +81,9 @@ func buildFilterComplex(video *Video) []string {
 
 func buildVideoMaps(video *Video) []string {
 
-	// --- MAP OF BITRATE VALUES ---
-	rates := map[int]struct {
-		avg, max, buf string
-	}{ // This is for 30 fps, if the video has 60fps we gotta double this values
-		2160: {"25000k", "35000k", "50000k"},
-		1440: {"12000k", "16000k", "24000k"},
-		1080: {"6000k", "8000k", "12000k"},
-		720:  {"3500k", "5000k", "7000k"},
-		480:  {"1500k", "2000k", "3000k"},
-	}
-
 	mapFlag := "-map"
 	var maps []string
-	for index := range video.Renditions {
+	for index, rung := range video.Renditions {
 
 		// --- INDEX THE FLAGS AND RETREIVE VALUES FOR REFERENCE RESOLUTION ---
 
@@ -107,13 +96,12 @@ func buildVideoMaps(video *Video) []string {
 		bufsizeFlag := fmt.Sprintf("-bufsize:v:%v", index)
 
 		// --- TURN IT ALL INTO A SLICE ---
-		bitrate := rates[video.Renditions[index].value]
 		maps = append(maps,
 			mapFlag, version,
 			codecFlag, "libx264",
-			bitrateFlag, bitrate.avg,
-			maxrateFlag, bitrate.max,
-			bufsizeFlag, bitrate.buf,
+			bitrateFlag, rung.VideoBitrate,
+			maxrateFlag, rung.MaxRate,
+			bufsizeFlag, rung.BufSize,
 		)
 	}
 
@@ -126,29 +114,19 @@ func buildAudioMaps(video *Video) []string {
 		return nil
 	}
 
-	// --- MAP OF BITRATE VALUES ---
-	rates := map[int]string{
-		2160: "320k",
-		1440: "320k",
-		1080: "192k",
-		720:  "192k",
-		480:  "128k",
-	}
-
 	mapFlag := "-map"
 	var audioMaps []string
-	for index := range video.Renditions {
+	for index, rung := range video.Renditions {
 
 		// Example output:
 		// "-map", "a:0", "-c:a:0", "aac", "-b:a:0", "192k",
 		codecFlag := fmt.Sprintf("-c:a:%v", index)
 		bitrateFlag := fmt.Sprintf("-b:a:%v", index)
-		bitrate := rates[video.ReferenceResolution]
 
 		audioMaps = append(audioMaps,
 			mapFlag, "a:0", // use only the first audio stream
 			codecFlag, "aac",
-			bitrateFlag, bitrate,
+			bitrateFlag, rung.AudioBitrate,
 		)
 	}
 

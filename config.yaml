@@ -6,9 +6,22 @@ ingest:
     port: ":1137" # :1137
 
 encode:
-  concurrent_encodings: 2 
+  concurrent_encodings: 2
   output_ffmpeg_command: false
-  
+  # ladder: # optional, defaults to the original 2160p..480p ladder
+  #   - name: "1080"        # reference pixels: height for horizontal videos, width for vertical ones
+  #     resolution: 1080
+  #     video_bitrate: "4500k"
+  #     maxrate: "6000k"
+  #     bufsize: "9000k"
+  #     audio_bitrate: "160k"
+  #   - name: "720"
+  #     resolution: 720
+  #     video_bitrate: "2500k"
+  #     maxrate: "3500k"
+  #     bufsize: "5000k"
+  #     audio_bitrate: "128k"
+
 dispatch:
   s3:
     enabled: false

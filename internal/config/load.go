@@ -36,6 +36,12 @@ func Load(options *core.Options, path string) error {
 		log.Fatal("Invalid config\n", err)
 	}
 
+	for index, rung := range options.Encode.Ladder {
+		if !rung.Valid() {
+			log.Fatalf("Invalid config\ninvalid ladder rung at index %v: every rung needs a name, a resolution > 0, video_bitrate, maxrate, bufsize and audio_bitrate", index)
+		}
+	}
+
 	return nil
 }
 

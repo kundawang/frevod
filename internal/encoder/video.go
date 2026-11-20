@@ -1,9 +1,10 @@
 package encoder
 
-type Resolution struct {
-	name  string
-	value int
-}
+import (
+	"slices"
+
+	"github.com/Matheus-Rossetti/frevod/internal/core"
+)
 
 type Video struct {
 	Height      int
@@ -13,11 +14,11 @@ type Video struct {
 
 	HasAudio            bool // Useful when building the ffmpeg command, we dont include audio tags if hasAudio == false
 	Orientation         string
-	ReferenceResolution int          // in a vertical video, this is width value | for horizontal, height value
-	Renditions          []Resolution // if a video is 1440p/QHD, this would be -> 1440p, 1080p, 720p, 480p
+	ReferenceResolution int         // in a vertical video, this is width value | for horizontal, height value
+	Renditions          core.Ladder // if a video is 1440p/QHD with the default ladder, this would be -> 1440p, 1080p, 720p, 480p
 }
 
-func NewVideo(metadata *Metadata) *Video {
+func NewVideo(metadata *Metadata, ladder core.Ladder) *Video {
 
 	hasAudio := false
 	videoHeight := 0
@@ -45,28 +46,6 @@ func NewVideo(metadata *Metadata) *Video {
 		referenceResolution = mainStream.Width
 	}
 
-	// --------- DECIDE WHICH RENDITIONS TO MAKE ---------
-	resolutions := []Resolution{
-		{"2160", 2160},
-		{"1440", 1440},
-		{"1080", 1080},
-		{"720", 720},
-		{"480", 480},
-	}
-
-	// only adds renditions of native res and lower, never upscale.
-	var renditions []Resolution
-	for _, res := range resolutions {
-		if referenceResolution >= res.value {
-			renditions = append(renditions, res)
-		}
-	}
-
-	// in case a video res is lower than the lowest supported res
-	if len(renditions) == 0 {
-		renditions = append(renditions, resolutions[len(resolutions)-1]) // add the lowest possible res to the list
-	}
-
 	return &Video{
 		Height:      mainStream.Height,
 		Width:       mainStream.Width,
@@ -76,6 +55,66 @@ func NewVideo(metadata *Metadata) *Video {
 		HasAudio:            hasAudio,
 		Orientation:         orientation,
 		ReferenceResolution: referenceResolution,
-		Renditions:          renditions,
+		Renditions:          ResolveLadder(ladder, referenceResolution),
 	}
+}
+
+// ResolveLadder turns a requested ladder into the final, ordered set of
+// renditions for a source whose reference resolution is referenceResolution.
+//
+// The result is deterministic no matter how the input was ordered:
+//  1. invalid rungs are dropped (empty ladder falls back to DefaultLadder)
+//  2. rungs are sorted by resolution, highest first, so input given in
+//     any order (e.g. bitrates listed low-to-high) comes out normalized
+//  3. duplicate resolutions are removed, the first occurrence wins
+//  4. rungs above the source reference resolution are filtered out,
+//     we never upscale
+//  5. if every rung was filtered out, the lowest rung is kept,
+//     so a job always produces at least one rendition
+func ResolveLadder(ladder core.Ladder, referenceResolution int) core.Ladder {
+
+	if len(ladder) == 0 {
+		ladder = core.DefaultLadder()
+	}
+
+	valid := make(core.Ladder, 0, len(ladder))
+	for _, rung := range ladder {
+		if rung.Valid() {
+			valid = append(valid, rung)
+		}
+	}
+	if len(valid) == 0 {
+		valid = core.DefaultLadder()
+	}
+
+	// highest resolution first, stable so duplicates keep input order
+	sorted := slices.Clone(valid)
+	slices.SortStableFunc(sorted, func(a, b core.Rung) int {
+		return b.Resolution - a.Resolution
+	})
+
+	deduped := make(core.Ladder, 0, len(sorted))
+	seen := make(map[int]struct{}, len(sorted))
+	for _, rung := range sorted {
+		if _, ok := seen[rung.Resolution]; ok {
+			continue
+		}
+		seen[rung.Resolution] = struct{}{}
+		deduped = append(deduped, rung)
+	}
+
+	// only adds renditions of native res and lower, never upscale.
+	var renditions core.Ladder
+	for _, rung := range deduped {
+		if referenceResolution >= rung.Resolution {
+			renditions = append(renditions, rung)
+		}
+	}
+
+	// in case every rung sits above the source res
+	if len(renditions) == 0 {
+		renditions = append(renditions, deduped[len(deduped)-1]) // add the lowest possible res to the list
+	}
+
+	return renditions
 }
